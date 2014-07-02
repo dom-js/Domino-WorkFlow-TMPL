@@ -1,0 +1,694 @@
+ 
+%Include "lsslib/App.lib.lss"
+Public Util As BaseUtil 
+
+
+
+%REM
+	Class Util
+	Created 2011-6-21 by 常用函数集合
+	Description: 包含了一些常用的函数集合
+%END REM
+Class BaseUtil as Application
+ 
+	Private p_form_content List As Variant 
+	%REM
+		Sub New
+		Description: Comments for Sub
+	%END REM
+	Sub New  
+
+		Dim strkey As String  
+		Dim strPs As String 
+		Dim strDt As String 
+		Dim strScope As String 
+		Dim strCode As String 
+		Dim strHashing As String
+		Dim strHashed As String	
+		Dim numR As Integer 
+		Dim numScope As Integer
+		Dim numMod As Integer
+		
+		strkey = "(GfnXHW9dAdf3UXp+1yXY)//hikvision.com.cn//2049-1-1//13650"
+		strPs = StrLeft(strKey,"//")
+		strDt =StrRightBack(StrLeftBack(strKey,"//"),"//")
+		strScope = StrLeft(StrRight(strKey,"//"),"//")
+		strCode  = StrRightBack(strKey,"//")
+		dim strErr as string 
+		strErr = ""
+		If IsNumeric(strCode) = false Then
+			strErr = "错误的注册码，请重新申请"
+			Exit Sub 
+		End If
+		numR = CInt(strCode)  
+		Dim odt As New NotesDateTime(strDt)		
+		numScope = Len(strScope)  
+		numMod = numR Mod Len(strScope)   
+		strHashing =Left(strScope,numMod)
+		strHashing = strHashing+odt.Localtime
+		dim numScopeEnd as  Integer
+		numScopeEnd = numScope-numMod 
+		strHashing = strHashing+Right(strScope,numScopeEnd)  
+		strHashed = me.s.Hashpassword(strHashing)
+
+		If Not Me.s.Verifypassword(strHashing, strPs) Then
+			strErr = "错误的注册码，请重新申请"
+		ElseIf  InStr(Me.Dns,strScope) = 0 Then 
+			strErr = "此副本仅授权"
+			strErr = strErr +Cstr(strScope)
+			strErr = strErr +"使用"
+		Else
+			Dim ndt As New NotesDateTime("Today")
+			Dim numDf As Long
+			numDf = odt.Timedifference(ndt)/86400 
+			If numDf<0 Then
+				strErr = "此副本已经超期:"  +CStr(0-numDf)
+				strErr = strErr +"D"
+			End If
+		End If 
+		if strErr<>"" Then  
+			'Call Me.s.Sendconsolecommand("","tell http restart ") 
+		end if 
+	End Sub
+	 
+	
+	%REM
+	 	Property Get ServerTime
+	 	Description: 返回服务器时间
+	%END REM
+	Public Property Get ServerTime  As Variant
+		ServerTime = me.EvalFormula("@now([ServerTime])", null)
+	End Property 
+
+
+	%REM
+		Function getServerTime
+		Description: 返回指定格式的服务器时间
+		参数
+		f as string ：要返回的日期格式，可以参考 Format 函数
+	%END REM
+	Public Function getServerTime(f As String ) As String  
+		getServerTime = Format(me.ServerTime(0),f) 
+	End Function
+
+
+
+
+	%REM
+		Function getMarkStr
+		Description: 获取标签内的值
+		参数
+			source as string : 原始字符串
+			startMark : 前标签
+			endMark   ：后标签
+	%END REM
+	Function getMarkList(source As String,startMark As String,endMark As String) As Variant 
+		
+		Dim arrTemp  As Variant
+		Dim arrTemp2 As Variant	
+		Dim strTemp As String
+		
+		Dim arrTemp3() As String
+		Dim arrTemp4 As Variant
+		arrTemp = Split(source,startMArk)
+		
+		If UBound(arrTemp) = 0 Then  
+			' return empty
+			Exit Function
+		End If
+		
+		Dim i As Integer
+		ReDim arrTemp3(UBound(arrTemp)-1) As String 
+		For i = 1 To UBound(arrTemp) 
+			arrTemp2=Split(arrTemp(i),endMark) 
+			arrTemp3(i-1) = arrTemp2(0) 
+		Next
+		
+		getMarkList = ArrayUnique(arrTemp3)
+	End Function
+	
+	%REM
+		Function EvalDateTimeStr
+		Description: 计算具有[YYDDMM]格式字符的字符串
+	%END REM
+	Public Function EvalDateTimeStr(obj As Variant ,source As String,startMark As String,EndMark As String)As String 
+		Dim arrTemp As Variant
+		Dim strTemp As String,strVal As String ,sm As String ,em As String
+		Dim doc As NotesDocument
+		
+		If me.TypeOf(obj) <> "NOTESDOCUMENT"  Then
+			Set doc = me.Doc
+		Else
+			Set doc = obj
+		End If
+		If sm="" Or em ="" Then
+			sm="["
+			em="]"
+		End If
+		
+		
+		
+		Dim varFormat  As Variant
+		Dim dtNow As String,strSerialNo As String
+		
+		strTemp = source
+		
+		varFormat = me.getMarkList(strTemp, sm,em)
+		If me.TypeOf(varFormat) <> "EMPTY" Then 
+			ForAll dtf In varFormat 
+				Dim f As String
+				f = dtf
+				dtNow = me.getServerTime(f)
+				strTemp = Replace(strTemp,sm + f + em, dtNow)
+			End ForAll
+		End If
+		
+		EvalDateTimeStr = strTemp
+	End Function
+	%REM
+	 	Function EvalFieldStr
+	 	Description: 将一段包含域名单字符串转计算
+	%END REM
+	Public Function EvalFieldStr(obj As Variant ,source As String,startMark As String,EndMark As String) As String
+		Dim arrTemp As Variant
+		Dim strTemp As String,strVal As String ,sm As String ,em As String
+		Dim doc As NotesDocument
+		If me.TypeOf(obj) <> "NOTESDOCUMENT"  Then
+			Set doc = me.Doc
+		Else
+			Set doc = obj
+		End If
+		
+		If sm="" Or em ="" Then
+			sm="<"
+			em=">"
+		End If
+		strTemp = source
+		
+		arrTemp = me.getMarkList(source,sm,em)
+		
+		If(IsEmpty(arrTemp)) Then
+			EvalFieldStr = source
+			Exit Function
+		End If
+		
+		Dim i As Integer
+		For i = 0 To UBound(arrTemp)
+			If doc.Hasitem(arrTemp(i)) Then
+				strVal=doc.Getfirstitem(arrTemp(i)).Text				 
+				strTemp = Replace(strTemp,sm+arrTemp(i)+em,strVal)
+			End If
+		Next  
+		EvalFieldStr = strTemp
+	End Function
+	
+
+	 %REM
+	 	Function Get
+	 	Description: Comments for Function
+	%END REM
+	Public Function CGI_Get(key) As String 
+		
+		Dim QueryString As String ,flag As String ,rightStr As String,leftStr As String
+		Dim beginIndex As  Integer ,endIndex As Integer
+		QueryString  = me.Doc.Query_String_Decoded(0)
+		
+		flag = "&"+key+"="
+		If InStr(QueryString, flag)<>0 Then
+			beginIndex = InStr(QueryString, flag)+Len(flag)-1
+			rightStr = Right(QueryString,Len(QueryString)-beginIndex)
+			If InStr(rightStr, "&")<>0 Then
+				endIndex = InStr(rightStr, "&")-1
+				leftStr = Left(rightStr,endIndex)
+				CGI_Get = leftStr
+			Else
+				CGI_Get = rightStr
+			End If
+		Else
+			CGI_Get=""
+		End If 
+	End Function
+	 
+	
+
+	%REM
+		Function CGI_Post
+		Description: 获取Post发送到数据（WEB方式）
+	%END REM
+	Public Function Post(KEY As String) As Variant
+		On Error GoTo errhandle
+		
+		Call me.Computer_form_content()
+		
+		If IsElement(me.p_form_content(key)) Then
+			Post = me.p_form_content(key)
+		Else 
+			Post = me.p_form_content("sys_empty")
+		End If 
+		
+	 
+		Exit Function 
+	errhandle:
+		
+			Error 8001 , "UTIL.POST (" + CStr(Err) + " on line " + CStr(Erl) + "): " + Error 
+		'	Call E.Throw(8001) 
+			
+	End Function
+
+	%REM
+		Sub Computer_form_content
+		Description: 将Post数据存放到一个私有list 列表内
+	%END REM 
+	Private Sub  Computer_form_content() 
+		On Error GoTo errhandle
+		If IsElement(me.p_form_content("sys_empty")) = False Then
+			Dim querystring , content As String
+			Dim  contentitem As NotesItem
+			If me.Doc.hasItem("REQUEST_CONTENT") Then
+				content =me.Doc.REQUEST_CONTENT(0)
+			Else
+				Dim i As Integer ,fieldname As String
+				For i = 0 To 999  
+					fieldname 	= "REQUEST_CONTENT_" + CStr(Format(i,"000")) 
+					If me.Doc.hasItem(fieldname) Then
+						Set contentitem = me.doc.Getfirstitem(fieldname)
+						 content = content + contentitem.Values(0) 
+						'content = content + contentitem.Text
+					Else
+						Exit For  
+					End If 
+				Next
+			End If 
+			Dim retVal  As String
+			Dim retVals As Variant 
+			
+			retVals = Split(content,"&")
+			Dim arrVal(0) As String
+			arrVal(0) = ""
+			me.p_form_content("sys_empty")=arrVal
+			
+			If(UBound(retVals)>0)Then
+				
+				Dim strkey As String
+				
+				Dim arrVals As Variant
+				
+				Dim tempstr As String 
+				Dim tempRetVal As Variant
+				
+				
+				For i = 0 To UBound(retVals)					
+					tempstr = retVals(i)
+					'MsgBox tempstr
+					'中括号被编码，表示数组参数
+					strkey = Replace(StrLeft(tempstr,"="),"%5B%5D","")
+					'tempstr = Replace(tempstr,"+","%20")
+					'对值进行URLDecode解码处理					 
+					arrVal(0) =  me.URLDecode(StrRight(tempstr,"="))
+									
+					If	IsElement(me.p_form_content(strkey)) Then 
+						arrVals = me.p_form_content(strkey)
+						me.p_form_content(strkey) = ArrayAppend(arrvals,arrVal) 
+					Else 
+						ReDim arrVals(0) As String  
+						Me.p_form_content(strkey) = arrVal 
+					End If
+					'tempRetVals(i-1) =  me.URLDecode(  tempRetVal(0))
+				Next
+				
+			End If 
+		End If
+		Exit Sub  
+		errhandle: 
+		If (Err=28) Then
+			'E.ErrorStr =   "提交内容过长 ," + Error 
+			'Call E.Throw(8028)
+			Error 8028,"Content OverFlow ," + Error 
+		Else
+			Error 8002,   "UTIL.Computer_form_content (" + CStr(Err) + " on line " + CStr(Erl) + "): " + Error 
+		'	Call E.Throw(8002)
+			
+		End if		
+	End Sub 
+
+	%REM
+	Function getLimit
+	Description: 按照一定长度拆分utf8 字符串
+	%END REM
+	Public Function getUtf8Limit (strEncode  As String ,limit As Integer) As Integer 
+		 
+		On Error GoTo errhandle
+				
+		Dim  n As Integer
+		
+		Dim  strsub As String ,char  As String	
+			 
+		strsub=Mid(strEncode,limit,3)
+			  		
+		Select Case InStr(CStr(strsub),"%") 	
+			Case 0:
+				getUtf8Limit=limit+1
+				char="0"
+			Case 1: 
+				n=1
+				char = Mid(strsub,2,1)
+				getUtf8Limit=limit-1
+			Case 2:
+				n=0
+				char = Mid(strsub,3,1)
+				getUtf8Limit=limit  
+			Case 3:
+				n=2
+				char = Mid(strsub,1,1)
+				getUtf8Limit=limit+1
+		End Select
+		'如果大于7 ，则表示当前字符为多字节字符部分
+	 	
+		If CStr(char)>CStr(7) Then 
+			If CStr(char)<"C" Then 
+				getUtf8Limit = me.getUtf8Limit(strEncode,limit-3 ) 
+			Else 
+				getUtf8Limit = limit -n  
+			End If 
+		End If 
+		
+		Exit Function 
+		errhandle: 
+		
+		'E.ErrorStr =  
+		Error 8001, "UTIL.getUtf8Limit (" + CStr(Err) + " on line " + CStr(Erl) + "): " + Error 
+	End Function
+
+	%REM
+	Fucniton  URLDecode
+	Description: 对字符串进行Decode解码（正常情况下Ajax提交到服务器的内容都会被URLencode编码，到服务器端再进行解码）
+	
+	%END REM 
+	Public Function  URLDecode(strContent  As String ) As String 
+		'一旦编码长度超过2048字节，则进行分段解码处理 	 
+		Dim limit As Integer
+		limit = 2040
+		Dim arrTemp As Variant
+		If Len(strContent)>limit Then   	 
+			Dim lStr As String,rStr As String
+			limit = me.getUtf8Limit(strContent,limit)
+			lStr = Mid(strContent,1,limit)
+			rStr = Mid(strContent,limit+1) 
+			
+			arrTemp	 =  (Evaluate(|@UrlDecode("UTF-8"; "| & Replace(lStr,"+"," ") & |")|))  
+			URLDecode = arrTemp(0) +URLDecode(rStr)  
+		Else 
+			
+			arrTemp	 =  (Evaluate(|@UrlDecode("UTF-8"; "| & Replace(strContent,"+"," ") & |")|))
+			URLDecode = arrTemp(0)
+		End If 
+	End Function  
+
+	
+
+
+	 
+	%REM
+		Function ArrayToString
+		Description: 将String 数组转换成字符串，使用丢号分割
+	%END REM
+	Public Function ArrayToString(v As Variant) As String
+		Dim strRet As String  
+		strRet=""
+		dim var as Variant
+		var = v 
+		If me.TypeOf(Var)="EMPTY" Then
+			ArrayToString = ""
+			Exit Function 
+		End If
+		If me.TypeOf(Var)="STRING" Then 
+			ArrayToString = CStr(var)
+			Exit Function 
+		End If
+		If me.TypeOf(var)<>"ARRAY" Then
+			ArrayToString = var
+			Exit Function 
+		End If 
+		strRet = Join(var,",") 
+		
+		ArrayToString = strRet
+	End Function
+
+	 
+ 	%REM
+		Function TypeOf
+		Description: 返回一个对象类型
+		参数：
+			var 要检查的对象
+		返回
+			字符串
+	%END REM 
+	Function TypeOf(var As Variant) As String
+		Dim strType As String
+		
+		strType = Replace(TypeName(var)," ","")	 
+		 
+		If IsEmpty(var) Then 
+			TypeOf = "EMPTY"
+			Exit function
+		End If 
+		
+		If Right(strType,2) = "()" Then  
+			If(TypeOf(var(0))="STRING") And var(0) = "" Then
+				TypeOf = "EMPTY"
+			Else
+				TypeOf = "ARRAY"
+			End If 
+		Else 
+			TypeOf = strType 
+		End If
+	End Function
+	
+	Function Empty(var As Variant) As Boolean
+		Empty =( me.TypeOf(var) = "EMPTY")
+	End function
+	
+
+
+	
+	%REM
+		Function inArray
+		Description: 检查元素是否在数字内
+	%END REM
+	Function inArray(varSearch As Variant ,varSource As Variant) As Boolean 
+		If me.TypeOf(ArrayGetIndex(varSource,varSearch)) = "NULL" Then
+			inArray = false
+		Else
+			inArray = True 
+		End If
+	End Function
+
+
+
+
+	%REM
+		Function EvalFormula
+		Description: 执行一个公式，并将结果返回
+		参数
+			f as String ，要执行的公式
+			d as NotesDataDocument or null，计算基于对文档，null表示当前文档 
+	%END REM
+	Function EvalFormula(f As String,d As Variant) As Variant
+
+		On Error GoTo erh
+		Dim doc As NotesDocument
+		 
+		If me.TypeOf(d) <> "NOTESDOCUMENT" Then
+			Set doc = me.Doc 
+		Else
+			Set doc = d
+		End If   
+	
+		Dim eval As Variant
+		If f="" Then
+			EvalFormula = f
+		Else
+			Dim flag As String 
+			flag = "@False" 
+			If Not  me.Session.Documentcontext Is Nothing Then 
+				If me.Session.Documentcontext.Isnewnote Then
+					flag = "@True" 
+				End If
+			End If  
+			f = Replace(f,"@IsNewDoc",flag)
+			f = Replace(f,"@isnewdoc",flag) '处理新文档计算
+	 		
+
+			f = Replace(f,"@UserName",|"|+me.User+|"|)
+			f = Replace(f,"@username",|"|+me.User+|"|) '当前处理人使用util.user 替换，解决管理员运行时，用户计算问题
+			eval = Evaluate(f,doc)
+			EvalFormula = eval
+		End If 
+	 
+		Exit Function 
+		erh:
+
+		
+		Error 8101 , |EvalFormula：(|+f +|)Error|  
+  	End Function
+
+
+	%REM
+		Function EvalFormulaToStr
+		Description: 执行一个公式，并将结果返回为字符串
+	%END REM
+	Function EvalFormulaToStr(f As String,d As Variant) As String
+		
+		Dim var As Variant
+		Dim i As Integer
+		Dim s As String
+		s = ""
+		var = me.EvalFormula(F, D)
+		For i = LBound(var) To UBound(var)
+			If i = LBound(var) Then
+				s = var(i)
+			Else
+				s = s + "," + var(i)
+			End If
+		Next
+		EvalFormulaToStr = s
+	End Function
+
+
+
+	%REM
+		Function getFullName
+		Description: 用于获取用户全名
+	%END REM
+	Public Function getFullName(u As Variant) As Variant 
+		Dim checkFormalu As String  
+		dim users as Variant
+		users = u
+		if me.typeof(users) = "EMPTY" Then
+			getFullName = ""
+			Exit Function
+		End if
+		If me.typeof(users) = "ARRAY" Then  
+			users = FullTrim(users)  
+			USers = me.arrayToString(users)
+		End If 
+		checkFormalu = |@NameLookup ( [NoUpdate];  @Explode("| +  CStr(users) + |"); "FullName")| 
+		getFullName = ArrayUnique(me.EvalFormula(checkFormalu, Null) )
+	End Function
+
+
+	%REM
+		Function getLastName
+		Description: 获取用户LastName
+	%END REM
+	Public Function getLastName(u As Variant) As Variant
+		on Error GoTo erh
+  		Dim checkFormalu As String 
+		 dim users as Variant
+		users = u
+		If me.Empty(Users) Then
+  			getLastName = Users 
+  			Exit Function 
+  		End If
+  		
+		checkFormalu = |@Name( [CN];  @Explode("| + me.ArrayToString(Users) + |"))| 
+		getLastName = ArrayUnique(me.EvalFormula(checkFormalu, Null))
+
+		Exit Function
+	erh:
+		 Error 8029,"Util.getLastName Error ,Erl:"+Cstr(Erl) + ",Error" + Error 
+	End Function 
+
+	%REM
+		Function getShortName
+		Description: 用于获取用户短名，不推荐使用的方法
+	%END REM
+	Public Function getShortName(Users As Variant) As Variant
+	
+		Dim caAuthors As  New BArray
+		Dim checkFormalu As String  
+		If me.typeof(users) = "ARRAY" Then
+			Users = FullTrim(users)
+			USers = me.arrayToString(users)
+		End If 
+		checkFormalu = |@NameLookup ( [NoUpdate];  @Explode("| + CStr(users)  + |"); "ShortName")| 
+		getShortName = ArrayUnique(me.EvalFormula(checkFormalu, Null) )
+	End Function  
+
+	%REM
+		Function GetProfile
+		Description: 获取简要表
+		db:简要表所在数据库
+		profileName：简要表名称
+		profilekey：简要表key值 
+	%END REM
+	Public Function GetProfile(db As NotesDatabase,profileName As String,profilekey As String) As NotesDocument
+		Dim docProfile As NotesDocument
+		
+		Dim dc As NotesDocumentCollection
+		Set dc = db.Getprofiledoccollection(profileName)  
+		Set docProfile = dc.getFirstDocument
+		 
+		Do While Not  docProfile Is Nothing 
+			If LCase(docProfile.key)	= LCase(profilekey) Then
+				Exit Do
+			End If
+			Set docProfile = dc.getNextDocument(docProfile)		 		
+		Loop 
+		Set GetProfile = docProfile
+	End Function
+
+	%REM
+	Sub SendMail
+	Description: 发送邮件
+	参数
+		Subject As String : 主题
+		f as Variant :发件人
+		t as Variant　：收件人
+		st as Variant :抄送人
+		body as String ：邮件主题
+	%END REM
+	Function SendMail(Subject As String,f As Variant,t As Variant,st As Variant,body As Variant) as Boolean
+		On Error GoTo erh
+		SendMail = false
+		Dim emo As NotesDocument
+		Set emo = me.DB.Createdocument()
+		
+		Dim html As NotesStream  
+		Set html = session.CreateStream  
+		html.WriteText body 
+		
+		Dim mime As NotesMIMEEntity  
+		Set mime = emo.CreateMIMEEntity("Body")  
+		mime.SetContentFromText html, "text/html;charset=UTF-8", ENC_NONE 
+		
+		emo.Form = "Memo"
+		emo.Subject = Subject
+		emo.Sendto = t
+		emo.From = f
+		emo.CopyTo = st
+		
+		If me.typeof(t)<>"EMPTY" Then
+			Call emo.Send(False)
+			SendMail = True
+		End If
+		Exit Function 
+		
+erh:
+		SendMail = False
+		'Call L.Add("Util.sendto:邮件发送失败,收件人："+me.Arraytostring(t),false)
+		MsgBox "Util.SendMail:Sendmail Error,SendTo:"+me.Arraytostring(t)
+		Resume Next
+
+	End Function
+ 
+
+	%REM 
+		Function PrintJSON
+		Description: 输出JSON格式字符串
+	%END REM
+	Public Function PrintJSON(jsonStr As String) As String
+		Print "content-type:text/plain; charset=utf-8"
+		Print jsonStr 
+	End Function 
+End Class

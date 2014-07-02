@@ -1,0 +1,245 @@
+
+
+Class Application
+
+	Private s As NotesSession
+	Private p_doc As NotesDocument
+	Private p_user As String
+	Private p_db As NotesDatabase 
+	%REM
+		Sub New
+		Description: Comments for Sub
+	%END REM
+	Sub New 
+		Set me.s = New NotesSession
+		me.p_user = me.s.Effectiveusername 
+		 
+	End Sub
+	%REM
+		Property Get Session
+		Description: 返回当前会话
+	%END REM
+	Public Property Get Session As NotesSession
+		Set Session = me.s
+	End Property  	
+	%REM
+		Property Get DB
+		Description: 
+			返回当前数据库
+	%END REM
+	Public Property Get DB As NotesDatabase
+		If me.p_db Is Nothing Then
+			Set me.p_db = Me.Session.Currentdatabase			
+		End If
+		Set db = me.p_db
+	End Property
+	%REM
+		Property Set DB
+		Description: Comments for Property Set
+	%END REM
+	Public Property Set DB As NotesDatabase
+		Set me.p_db = DB
+	End Property
+	%REM
+		Property Get Doc
+		Description: 
+			返回当前文档
+	%END REM
+	Public Property Get Doc As NotesDocument
+		
+		If me.p_doc Is Nothing Then 
+			Set me.p_doc = me.Session.Documentcontext   
+		End If
+		
+		Set Doc = me.p_doc 'me.s.Documentcontext 
+		If Not Me.p_doc Is Nothing Then 
+			me.p_doc.SaveOptions=0
+		End If
+		
+	End Property
+	%REM
+		Property Set Doc 
+		Description: Comments for Property Set
+	%END REM
+	Public Property Set Doc As NotesDocument
+		Set me.p_doc = Doc
+	End Property
+	%REM
+		Property Get Doc
+		Description: 获取系统简要表
+	%END REM
+	Public Property Get Profile As NotesDocument
+		Set Profile = me.DB.Getprofiledocument("sysProfileConfig")
+	End Property 
+	%REM
+		Property Get User
+		Description: 返回当前用户全称
+	%END REM
+	Public Property Get User As String
+		User = Me.p_user
+	End Property
+
+	%REM
+		Property Get User
+		Description: 返回当前用户全称
+	%END REM
+
+	Public Property Set User As String
+		 Me.p_user = User
+	End Property
+
+	%REM
+		Property Get DNS
+		Description: 当前会话服务器DNS
+	%END REM
+	Public Property Get DNS As String 
+		DNS = StrRight(Me.HOSTURL,"://") 
+	End Property
+	
+	%REM 
+		Property Get 返回主机地址
+		Description: 
+	%END REM
+	Public Property Get HOSTURL As String  
+		HOSTURL= StrLeft(me.Session.Httpurl,"?")
+	End Property
+	
+	
+	
+	%REM
+		Property Get WebURL
+		Description:当前数据库URL地址
+	%END REM
+	Public Property Get WebURL As String
+		Dim url As String
+		url =   ME.HOSTURL+"/"+Replace(Me.Db.Filepath,"\","/")
+		'me.Profile.Getitemvalue("WebBaseURL")(0) 
+		weburl=url
+	End Property
+	
+
+	%REM
+		Function getDicEntry
+		Description: 获取数据字典文档（根据关键字获取）
+	%END REM
+	Public Function getDicEntry(keys As Variant) As NotesViewEntry
+		Dim view As NotesView 
+		Set view = me.DB.Getview("SysDictionaryMulti")
+		Set getDicEntry  = view.Getentrybykey(keys, True) 
+	End Function
+	
+	%REM
+		Function getDicEntrys
+		Description: 根据key获取文档集合
+	%END REM
+	Public Function getDicEntrys(keys As Variant) As NotesViewEntryCollection
+		Dim view As NotesView 
+		Set view = me.DB.Getview("SysDictionaryMulti")
+		Set getDicEntrys = view.Getallentriesbykey(keys, True)
+	End Function
+
+
+	Sub	UpdateToDo(docTodo As NotesDocument) 
+		dim subapp as new Application
+		dim stype as String
+		stype = docTodo.TodoType(0)
+		if stype = "" Then
+			stype = me.Profile.TodoType(0)
+		end if 
+		if stype = "" Then
+			stype = "1"
+		end if 
+		Dim itype As Integer
+		itype = CInt(stype) 
+		if itype=-1 Then
+			msgbox "No Send Todo Message."
+			Exit Sub
+		end if
+
+		If docTodo.TodoKey(0) = "" Then
+			Exit Sub 
+		End If
+		If docTodo.SendTo(0) = "" Then
+			docTodo.SendTo = "TodoMailCenter"
+		End If
+		If docTodo.ServerName(0) = "" Then
+			docTodo.ServerName =  me.DB.Server
+		End If
+		
+		If docTodo.DbFilePath(0) = "" Then
+			docTodo.DbFilePath = me.DB.Filepath
+		End If
+		if docTodo.DbFilePath(0)<>"" Then
+			Set subapp.db = me.Session.getdatabase(docTodo.ServerName(0),docTodo.DbFilePath(0),false)
+		end if  
+		 
+		If docTodo.AppName(0) = "" Then
+			docTodo.AppName = subapp.DB.Title
+		End If
+		If docTodo.ArriveTime(0) = "" Then
+			docTodo.ArriveTime = Evaluate("@now([ServerTime])",me.Doc)
+		End If
+		
+		docTodo.TodoType = Abs(itype mod 10)
+
+
+		If docTodo.WebDNS(0) = "" Then
+			docTodo.WebDNS = subapp.DNS
+		End If 
+		
+		With docTodo
+			.Form = "fmTodo"   
+		End With
+			'兼容老待办处理策略
+		if CInt(itype/10) = 1 Then
+			dim server as String
+			dim dbpath as string 
+			server = subapp.Profile.ToDoServer(0)
+			dbpath = subapp.Profile.ToDoDbPath(0)
+	 
+			if server<>"" and dbpath <>"" Then
+				dim  dbtodo as NotesDatabase 
+				set dbtodo = me.Session.getdatabase(server,dbpath,False)
+ 	 
+				if not dbtodo is Nothing Then
+
+				 
+					dim view as NotesView
+					set view = dbtodo.Getview("vwTodoIndexByApp") 
+					dim keys(1) as string
+					keys(0) = me.db.Filepath
+					keys(1) = docTodo.TargetUnid(0) 
+					Dim dctd As NotesDocumentCollection
+					Set dctd = view.Getalldocumentsbykey(keys,true)
+					  
+					Dim doctd As NotesDocument
+					Set doctd =dctd.Getfirstdocument()
+				  
+					While Not doctd Is Nothing 
+				 		dim doctdTmp as  NotesDocument
+				 		set doctdTmp =dctd.Getnextdocument(doctd) 
+						If doctd.Remove(True) = False Then
+							doctd.delflag = 1 
+							Call doctd.Save(False,False)
+						End If 
+						Set doctd=doctdTmp
+					Wend  
+
+				end if 
+
+			end if 
+		end if 
+ 
+		if itype=-2 Then 
+			on error goto erh 
+		end if 
+		Call docTodo.Send(False)
+		'msgbox |update todo successful.|
+		Exit sub 
+	erh:
+			msgbox "Update Todo Fail.TodoKey:" + docTodo.TodoKey(0) 
+			resume next 
+	End Sub
+	
+	
+End Class

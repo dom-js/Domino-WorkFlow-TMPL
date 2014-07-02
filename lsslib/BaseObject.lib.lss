@@ -1,0 +1,82 @@
+%REM
+	Library Base.Object.Lib
+	Created 2011-9-29 by publicDesign/HIKVISION
+	Description:2013/3/5 基础类库定义配置类所具有的三个文档，配置文档，当前上下文文档，目标文档
+  
+	Created 2011-9-29 by publicDesign/HIKVISION
+	Description: 基础类，用于协调配置文档，运行环境文档和操作文档
+%END REM
+Class BaseObject 
+	'Private p_DBConfig As NotesDatabase '配置库
+	'Private p_DBTarget As NotesDatabase '文档库
+	'Private p_DBContext As NotesDatabase '文档库
+	Private p_dbConfig As NotesDatabase	'配置数据库，一般情况下，配置文档是从配置数据库读取的
+	Private p_DocConfig As NotesDocument '配置文档
+	Private p_docTarget As NotesDocument '目标文档档
+	Private p_docContext As NotesDocument '上下文文档 
+	
+	
+	
+	%REM
+		Property Get DB
+		Description: 配置数据库
+	%END REM
+	Public Property Get DBConfig As NotesDatabase
+		Set DBConfig = p_dbConfig 
+	End Property
+	
+	%REM
+		Property Set DBConfig
+		Description: 设置配置数据库
+	%END REM
+	Public Property Set DBConfig As NotesDatabase 
+		Set p_dbConfig = DBConfig
+	End Property
+	%REM
+		Property Set DocConfig
+		Description: 设置配置文档
+	%END REM
+	Public Property Set DocConfig As NotesDocument
+		Set p_DocConfig = DocConfig
+	End Property
+	
+	%REM
+		Property Get DocConfig
+		Description: 获取配置文档
+	%END REM
+	Public Property Get DocConfig As NotesDocument
+		Set DocConfig = p_DocConfig
+	End Property
+	
+	%REM
+		Property Set DocTarget
+		Description: 设置目标文档
+	%END REM
+	Public Property Set DocTarget As NotesDocument
+		Set p_docTarget = DocTarget 
+	End Property
+	
+	%REM
+		Property Get DocTarget
+		Description: 获取目标文档
+	%END REM
+	Public Property Get DocTarget As NotesDocument
+		Set DocTarget = p_docTarget
+	End Property 
+	
+	%REM
+		Property Set DocContext
+		Description: 设置上下文文档
+	%END REM
+	Public Property Set DocContext As NotesDocument
+		Set p_docContext = DocContext
+	End Property
+	
+	%REM
+		Property Get DocContext
+		Description: 获取上下文文档
+	%END REM
+	Public Property Get DocContext As NotesDocument
+		Set DocContext = p_docContext
+	End Property
+End Class
