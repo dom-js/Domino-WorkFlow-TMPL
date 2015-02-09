@@ -29,7 +29,7 @@ Class BaseUtil as Application
 		Dim numScope As Integer
 		Dim numMod As Integer
 		
-		strkey = "(GfnXHW9dAdf3UXp+1yXY)//hikvision.com.cn//2049-1-1//13650"
+		strkey = "(GfnXHW9dAdf3UXp+1yXY)//test.com//2049-1-1//13650"
 		strPs = StrLeft(strKey,"//")
 		strDt =StrRightBack(StrLeftBack(strKey,"//"),"//")
 		strScope = StrLeft(StrRight(strKey,"//"),"//")
