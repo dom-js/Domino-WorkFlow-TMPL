@@ -81,7 +81,7 @@
 	**具体参数写法可参考 `Format`函数**
 - **getFullName(users As Variant)**[Variant]
 
-	传入一个/组用户`users`，返回用户的全名`Cn=username/o=hikvision`格式，**如果用户不存在将被自动过滤**
+	传入一个/组用户`users`，返回用户的全名`Cn=username/o=XXXXXX`格式，**如果用户不存在将被自动过滤**
 
 - **getLastName(Users As Variant)**[Variant]
 
